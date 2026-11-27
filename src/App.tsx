@@ -55,7 +55,7 @@ function parseBias(bias: string): BiasDisplay {
     return {
       direction: "up",
       label: "Naik",
-      note: low.includes("pullback") ? "koreksi" : undefined,
+      note: low.includes("pullback") ? "turun sebentar (pullback)" : undefined,
       cls: "pos",
       pillCls: "tf-pill tf-up",
     };
@@ -64,7 +64,7 @@ function parseBias(bias: string): BiasDisplay {
     return {
       direction: "down",
       label: "Turun",
-      note: low.includes("bounce") ? "pantulan" : undefined,
+      note: low.includes("bounce") ? "naik sebentar (bounce)" : undefined,
       cls: "neg",
       pillCls: "tf-pill tf-down",
     };
