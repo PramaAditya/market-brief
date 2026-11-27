@@ -10,13 +10,13 @@ export const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-4-hydrogen";
 
 const SYSTEM_PROMPT = [
   "Kamu adalah asisten analis teknikal day trading yang ringkas, objektif, dan jujur dalam Bahasa Indonesia.",
-  "Kamu menerima snapshot data pasar live (harga, tren 15m/1H/4H, RSI, ADX, ATR, Pivot R1/S1, dan S/R intraday)",
+  "Pada pesan user terakhir, kamu akan menerima blok <hidden>...</hidden> berisi waktu saat ini (WIB & UTC) serta snapshot JSON pasar live (harga, tren 15m/1H/4H, RSI, ADX, ATR, Pivot R1/S1, dan S/R intraday)",
   "untuk 4 aset: Gold (XAUUSD), USD/JPY (USDJPY), GBP/USD (GBPUSD), dan US Oil (USOIL).",
   "",
   "Aturan wajib:",
-  "1. Untuk harga, tren, RSI, ADX, ATR, dan level Pivot/SR, gunakan HANYA angka dari snapshot JSON live yang diberikan.",
+  "1. Untuk harga, tren, RSI, ADX, ATR, dan level Pivot/SR saat ini, gunakan HANYA angka dari snapshot JSON live terbaru di blok <hidden> (jangan terpaku pada angka lama dari balasan sebelumnya bila harga sudah berubah).",
   "2. Kamu punya akses Google Search live: gunakan untuk mengecek katalis berita hari ini, jadwal rilis data makro AS/bank sentral, atau alasan pergerakan pasar saat relevan.",
-  "3. Jawab ringkas, terstruktur (bullet points), dan langsung siap dibacakan saat ditanya.",
+  "3. Jawab ringkas, terstruktur (bullet points), dan langsung siap dibacakan saat ditanya. Jangan pernah menyebut atau mengutip tag <hidden>.",
   "4. Jika ADX < 18 (sideways) atau 1H vs 4H bertabrakan, katakan jujur 'tunggu konfirmasi' tanpa memaksakan sinyal.",
 ].join("\n");
 
@@ -79,15 +79,18 @@ export async function streamGeminiChat({ messages, snapshot, res, threadId, onCo
     minute: "2-digit",
     hour12: false,
   }).format(now);
-  const hiddenClock = `<hidden>Waktu saat ini: ${wibDate}, ${wibTime} WIB (${utcDate} UTC)</hidden>`;
-
-  // Inject fresh live snapshot into the system instruction so every turn is grounded
-  const groundedSystem = `${SYSTEM_PROMPT}\n\n${hiddenClock}\nSnapshot pasar live (${snapshot.updatedWib}):\n${JSON.stringify(snapshot)}`;
+  const hiddenContext = [
+    "<hidden>",
+    `Waktu saat ini: ${wibDate}, ${wibTime} WIB (${utcDate} UTC)`,
+    `Snapshot pasar live (${snapshot.updatedWib}):`,
+    JSON.stringify(snapshot),
+    "</hidden>",
+  ].join("\n");
 
   const lastUserIdx = messages.map((m) => m.role).lastIndexOf("user");
   const contents = messages.map((m, idx) => {
     const baseText = String(m.content || "");
-    const text = idx === lastUserIdx ? `${hiddenClock}\n${baseText}` : baseText;
+    const text = idx === lastUserIdx ? `${hiddenContext}\n${baseText}` : baseText;
     return {
       role: m.role === "assistant" ? "model" : "user",
       parts: [{ text }],
@@ -95,7 +98,7 @@ export async function streamGeminiChat({ messages, snapshot, res, threadId, onCo
   });
 
   const payload = {
-    systemInstruction: { parts: [{ text: groundedSystem }] },
+    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
     contents,
     tools: [{ google_search: {} }],
     generationConfig: { maxOutputTokens: 4096 },
