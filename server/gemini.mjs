@@ -110,7 +110,10 @@ export async function streamGeminiChat({ messages, snapshot, res, threadId, onCo
     systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
     contents,
     tools: [{ google_search: {} }],
-    generationConfig: { maxOutputTokens: 4096 },
+    generationConfig: {
+      maxOutputTokens: 4096,
+      thinkingConfig: { includeThoughts: true },
+    },
   };
 
   const upstream = await fetch(url, {
@@ -159,7 +162,9 @@ export async function streamGeminiChat({ messages, snapshot, res, threadId, onCo
         const cand = chunk?.candidates?.[0];
         const parts = cand?.content?.parts || [];
         for (const p of parts) {
-          if (p.text && !p.thought) {
+          if (p.text && p.thought) {
+            res.write(`data: ${JSON.stringify({ reasoning: p.text })}\n\n`);
+          } else if (p.text && !p.thought) {
             fullText += p.text;
             res.write(`data: ${JSON.stringify({ delta: p.text })}\n\n`);
           }

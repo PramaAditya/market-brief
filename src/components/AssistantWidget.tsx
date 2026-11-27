@@ -70,8 +70,19 @@ function createChatAdapter(
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      let reasoning = "";
       let text = "";
       let sources: { title: string; url: string }[] = [];
+
+      const buildContent = () => {
+        const parts: (
+          | { type: "reasoning"; text: string }
+          | { type: "text"; text: string }
+        )[] = [];
+        if (reasoning) parts.push({ type: "reasoning", text: reasoning });
+        if (text) parts.push({ type: "text", text });
+        return parts;
+      };
 
       try {
         while (true) {
@@ -87,9 +98,13 @@ function createChatAdapter(
             if (!payload || payload === "[DONE]") continue;
             const evt = JSON.parse(payload);
             if (evt.error) throw new Error(evt.error);
+            if (evt.reasoning) {
+              reasoning += evt.reasoning;
+              yield { content: buildContent() };
+            }
             if (evt.delta) {
               text += evt.delta;
-              yield { content: [{ type: "text", text }] };
+              yield { content: buildContent() };
             }
             if (Array.isArray(evt.sources)) {
               sources = evt.sources;
@@ -101,7 +116,7 @@ function createChatAdapter(
             "\n\n---\n" +
             sources.map((s) => `[${s.title} ↗](${s.url})`).join(" · ");
           text += footer;
-          yield { content: [{ type: "text", text }] };
+          yield { content: buildContent() };
         }
       } finally {
         reader.releaseLock();
@@ -137,10 +152,80 @@ function UserMessage() {
   );
 }
 
+function ReasoningText({
+  text,
+  status,
+}: {
+  text: string;
+  status: { type: string };
+}) {
+  const isStreaming = status.type === "running";
+  const [open, setOpen] = useState(isStreaming);
+
+  useEffect(() => {
+    setOpen(isStreaming);
+  }, [isStreaming]);
+
+  return (
+    <div className={`aui-reasoning ${isStreaming ? "is-streaming" : ""}`}>
+      <button
+        type="button"
+        className="aui-reasoning-trigger"
+        aria-expanded={open}
+        onClick={() => setOpen((prev) => !prev)}
+      >
+        <svg
+          className="aui-reasoning-brain"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M12 2a7 7 0 0 0-7 7c0 2.5 1.3 4.7 3.3 5.9L9 17h6l.7-2.1A7 7 0 0 0 12 2z" />
+          <path d="M9 21h6" />
+        </svg>
+        <span className={isStreaming ? "aui-reasoning-shimmer" : ""}>
+          {isStreaming ? "Sedang berpikir..." : "Proses berpikir"}
+        </span>
+        <svg
+          className={`aui-reasoning-chevron ${open ? "is-open" : ""}`}
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="aui-reasoning-body">
+          <ReactMarkdown>{text}</ReactMarkdown>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AssistantMessage() {
   return (
     <MessagePrimitive.Root className="aui-msg aui-msg-assistant">
-      <MessagePrimitive.Parts components={{ Text: MarkdownText }} />
+      <MessagePrimitive.Parts
+        components={{
+          Reasoning: ReasoningText,
+          Text: MarkdownText,
+        }}
+      />
       <ActionBarPrimitive.Root
         className="aui-actions"
         hideWhenRunning

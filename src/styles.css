@@ -681,6 +681,78 @@ summary {
   text-decoration: underline;
 }
 
+.aui-reasoning {
+  margin-bottom: 10px;
+}
+
+.aui-reasoning-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.aui-reasoning-trigger:hover {
+  color: var(--ink);
+}
+
+.aui-reasoning-brain {
+  flex-shrink: 0;
+}
+
+.aui-reasoning-chevron {
+  flex-shrink: 0;
+  transition: transform 0.16s ease;
+}
+
+.aui-reasoning-chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.aui-reasoning-shimmer {
+  background: linear-gradient(90deg, var(--muted) 25%, var(--ink) 50%, var(--muted) 75%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: aui-shimmer 1.6s linear infinite;
+}
+
+@keyframes aui-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.aui-reasoning-body {
+  margin-top: 6px;
+  padding: 6px 0 6px 10px;
+  border-left: 2px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.aui-reasoning-body p {
+  margin: 0 0 6px;
+}
+
+.aui-reasoning-body p:last-child {
+  margin-bottom: 0;
+}
+
 .aui-actions {
   display: flex;
   gap: 6px;
