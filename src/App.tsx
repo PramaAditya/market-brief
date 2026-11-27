@@ -290,48 +290,74 @@ export default function App() {
 
                   <details>
                     <summary>Detail level lainnya</summary>
-                    <dl className="kv-list">
-                      <div>
-                        <dt>Rentang gerak per jam (ATR)</dt>
-                        <dd className="num">±{fmt(a.tf1h.atr14, a.digits)}</dd>
-                      </div>
-                      <div>
-                        <dt>Titik tengah harian (Pivot)</dt>
-                        <dd className="num">{fmt(a.pivots.P, a.digits)}</dd>
-                      </div>
-                      <div>
-                        <dt>Support / Resistance ke-2 (S2 / R2)</dt>
-                        <dd className="num">
-                          {fmt(a.pivots.S2, a.digits)} / {fmt(a.pivots.R2, a.digits)}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Tertinggi / Terendah hari ini (High / Low)</dt>
-                        <dd className="num">
-                          {fmt(a.todayHigh, a.digits)} / {fmt(a.todayLow, a.digits)}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Batas bawah / atas 1 jam (Support / Resistance)</dt>
-                        <dd className="num">
-                          {fmt(a.intradaySup1h, a.digits)} / {fmt(a.intradayRes1h, a.digits)}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Rata-rata 20 / 50 jam (EMA 20 / 50)</dt>
-                        <dd className="num">
-                          {fmt(a.tf1h.ema20, a.digits)} / {fmt(a.tf1h.ema50, a.digits)}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Rata-rata 200 hari (SMA 200)</dt>
-                        <dd className="num">{fmt(a.sma200_1d, a.digits)}</dd>
-                      </div>
-                      <div>
-                        <dt>Sumber data</dt>
-                        <dd>{a.source}</dd>
-                      </div>
-                    </dl>
+                    <table className="detail-table">
+                      <tbody>
+                        <tr>
+                          <th scope="row">
+                            <span className="dt-main">ATR (1 jam)</span>
+                            <span className="dt-sub">Rentang gerak per jam</span>
+                          </th>
+                          <td className="num">±{fmt(a.tf1h.atr14, a.digits)}</td>
+                        </tr>
+                        <tr>
+                          <th scope="row">
+                            <span className="dt-main">Pivot</span>
+                            <span className="dt-sub">Titik tengah harian</span>
+                          </th>
+                          <td className="num">{fmt(a.pivots.P, a.digits)}</td>
+                        </tr>
+                        <tr>
+                          <th scope="row">
+                            <span className="dt-main">S2 / R2</span>
+                            <span className="dt-sub">Support / Resistance ke-2</span>
+                          </th>
+                          <td className="num">
+                            {fmt(a.pivots.S2, a.digits)} / {fmt(a.pivots.R2, a.digits)}
+                          </td>
+                        </tr>
+                        <tr>
+                          <th scope="row">
+                            <span className="dt-main">High / Low</span>
+                            <span className="dt-sub">Tertinggi / Terendah hari ini</span>
+                          </th>
+                          <td className="num">
+                            {fmt(a.todayHigh, a.digits)} / {fmt(a.todayLow, a.digits)}
+                          </td>
+                        </tr>
+                        <tr>
+                          <th scope="row">
+                            <span className="dt-main">Support / Resistance (1 jam)</span>
+                            <span className="dt-sub">Batas bawah / atas 20 candle</span>
+                          </th>
+                          <td className="num">
+                            {fmt(a.intradaySup1h, a.digits)} / {fmt(a.intradayRes1h, a.digits)}
+                          </td>
+                        </tr>
+                        <tr>
+                          <th scope="row">
+                            <span className="dt-main">EMA 20 / 50</span>
+                            <span className="dt-sub">Rata-rata 20 &amp; 50 jam</span>
+                          </th>
+                          <td className="num">
+                            {fmt(a.tf1h.ema20, a.digits)} / {fmt(a.tf1h.ema50, a.digits)}
+                          </td>
+                        </tr>
+                        <tr>
+                          <th scope="row">
+                            <span className="dt-main">SMA 200</span>
+                            <span className="dt-sub">Rata-rata 200 hari</span>
+                          </th>
+                          <td className="num">{fmt(a.sma200_1d, a.digits)}</td>
+                        </tr>
+                        <tr>
+                          <th scope="row">
+                            <span className="dt-main">Sumber data</span>
+                            <span className="dt-sub">Penyedia harga live</span>
+                          </th>
+                          <td className="dt-val-text">{a.source}</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </details>
                 </article>
               );
