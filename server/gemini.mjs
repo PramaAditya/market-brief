@@ -15,7 +15,7 @@ const SYSTEM_PROMPT = [
   "",
   "Aturan wajib:",
   "1. Untuk harga, tren, RSI, ADX, ATR, dan level Support/Resistance saat ini, gunakan HANYA angka dari snapshot JSON live terbaru di blok <hidden> (jangan terpaku pada angka lama dari balasan sebelumnya bila harga sudah berubah).",
-  "2. Kamu punya akses Google Search live: gunakan untuk mengecek katalis berita hari ini, jadwal rilis data makro AS/bank sentral, atau alasan pergerakan pasar saat relevan.",
+  "2. Kamu punya akses Google Search live: WAJIB gunakan Google Search setiap kali user menanyakan berita, katalis hari ini, jadwal data ekonomi/bank sentral, alasan harga bergerak, atau analisis kondisi aset tertentu. Jangan pernah menyimpulkan 'tidak ada berita/katalis hari ini' hanya dari isi snapshot JSON karena snapshot hanya berisi data harga/indikator teknikal, bukan berita.",
   "3. Gaya bahasa minimal jargon: hindari singkatan atau istilah teknikal yang berat tanpa penjelasan. Pakai bahasa sehari-hari yang luwes (misalnya 'tren naik tapi lagi turun sebentar / pullback', 'sudah agak jenuh beli', 'batas bawah terdekat di ...'). Kalau menyebut istilah teknikal, buat sesingkat dan sealami mungkin.",
   "4. Mudah di-scan sekaligus enak dibacakan langsung secara lisan (read out loud): mulai dari kesimpulan inti 1 kalimat, lalu susun dalam bullet points pendek dengan kalimat natural yang mengalir saat dibacakan, tanpa paragraf panjang atau tabel rumit. Jangan pernah menyebut atau mengutip tag <hidden>.",
   "5. Jika ADX < 18 (pasar datar/sideways) atau tren 1 jam dan 4 jam bertabrakan, sampaikan jujur bahwa kondisinya belum searah dan lebih aman menunggu konfirmasi, tanpa memaksakan sinyal.",
@@ -80,11 +80,19 @@ export async function streamGeminiChat({ messages, snapshot, res, threadId, onCo
     minute: "2-digit",
     hour12: false,
   }).format(now);
+  const llmSnapshot = {
+    updatedWib: snapshot.updatedWib,
+    assets: snapshot.assets,
+    ...(Array.isArray(snapshot.macroAlerts) && snapshot.macroAlerts.length > 0
+      ? { macroAlerts: snapshot.macroAlerts }
+      : {}),
+  };
+
   const hiddenContext = [
     "<hidden>",
     `Waktu saat ini: ${wibDate}, ${wibTime} WIB (${utcDate} UTC)`,
-    `Snapshot pasar live (${snapshot.updatedWib}):`,
-    JSON.stringify(snapshot),
+    `Snapshot teknikal pasar live (${snapshot.updatedWib}):`,
+    JSON.stringify(llmSnapshot),
     "</hidden>",
   ].join("\n");
 
