@@ -146,6 +146,8 @@ export async function streamGeminiChat({ messages, snapshot, res, threadId, onCo
   let fullText = "";
   const seenUrls = new Set();
   const sources = [];
+  const indexedChunks = [];
+  const rawSupports = [];
 
   while (true) {
     const { done, value } = await reader.read();
@@ -170,14 +172,23 @@ export async function streamGeminiChat({ messages, snapshot, res, threadId, onCo
             res.write(`data: ${JSON.stringify({ delta: p.text })}\n\n`);
           }
         }
-        const gChunks = cand?.groundingMetadata?.groundingChunks || [];
-        for (const g of gChunks) {
-          const uri = g?.web?.uri;
-          const title = g?.web?.title;
-          if (uri && !seenUrls.has(uri)) {
-            seenUrls.add(uri);
-            sources.push({ title: title || uri, url: uri });
-          }
+        const gMeta = cand?.groundingMetadata;
+        const gChunks = gMeta?.groundingChunks || [];
+        if (gChunks.length > 0) {
+          gChunks.forEach((g, idx) => {
+            const uri = g?.web?.uri;
+            const title = g?.web?.title;
+            if (uri) {
+              indexedChunks[idx] = { title: title || uri, url: uri };
+              if (!seenUrls.has(uri)) {
+                seenUrls.add(uri);
+                sources.push({ title: title || uri, url: uri });
+              }
+            }
+          });
+        }
+        if (Array.isArray(gMeta?.groundingSupports) && gMeta.groundingSupports.length > 0) {
+          rawSupports.push(...gMeta.groundingSupports);
         }
       } catch {
         // Ignore partial non-JSON lines
@@ -185,7 +196,44 @@ export async function streamGeminiChat({ messages, snapshot, res, threadId, onCo
     }
   }
 
+  // Build deduplicated minimalist grounded claims from Gemini groundingSupports
+  const textBuf = Buffer.from(fullText, "utf8");
+  const seenClaimTexts = new Set();
+  const claims = [];
+  for (const sup of rawSupports) {
+    const seg = sup?.segment || {};
+    let segText = typeof seg.text === "string" ? seg.text.trim() : "";
+    if (!segText && typeof seg.startIndex === "number" && typeof seg.endIndex === "number") {
+      segText = textBuf.subarray(seg.startIndex, seg.endIndex).toString("utf8").trim();
+    }
+    // Strip markdown bold/italic markers for clean text matching
+    const plain = segText.replace(/\*\*|__|[*_`]/g, "").trim();
+    if (plain.length < 12 || seenClaimTexts.has(plain)) continue;
+
+    const indices = Array.isArray(sup?.groundingChunkIndices) ? sup.groundingChunkIndices : [];
+    const matchedSources = indices
+      .map((i) => indexedChunks[i])
+      .filter(Boolean)
+      .slice(0, 3);
+    if (matchedSources.length === 0) continue;
+
+    const scores = Array.isArray(sup?.confidenceScores)
+      ? sup.confidenceScores.filter((n) => typeof n === "number")
+      : [];
+    const confidence = scores.length > 0 ? Math.max(...scores) : null;
+
+    seenClaimTexts.add(plain);
+    claims.push({
+      text: plain,
+      confidence: confidence != null ? Math.round(confidence * 100) : null,
+      sources: matchedSources,
+    });
+  }
+
   const topSources = sources.slice(0, 5);
+  if (claims.length > 0) {
+    res.write(`data: ${JSON.stringify({ claims: claims.slice(0, 12) })}\n\n`);
+  }
   if (topSources.length > 0) {
     res.write(`data: ${JSON.stringify({ sources: topSources })}\n\n`);
   }

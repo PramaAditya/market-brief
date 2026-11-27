@@ -5,12 +5,31 @@ import {
   ComposerPrimitive,
   MessagePrimitive,
   ThreadPrimitive,
+  useAuiState,
   useLocalRuntime,
   type ChatModelAdapter,
   type ThreadMessageLike,
 } from "@assistant-ui/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  isValidElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import ReactMarkdown from "react-markdown";
+
+interface GroundedSource {
+  title: string;
+  url: string;
+}
+
+interface GroundedClaim {
+  text: string;
+  confidence: number | null;
+  sources: GroundedSource[];
+}
 
 interface ThreadSummary {
   id: string;
@@ -72,16 +91,19 @@ function createChatAdapter(
       let buffer = "";
       let reasoning = "";
       let text = "";
-      let sources: { title: string; url: string }[] = [];
+      let sources: GroundedSource[] = [];
+      let claims: GroundedClaim[] = [];
 
-      const buildContent = () => {
+      const buildResult = () => {
         const parts: (
           | { type: "reasoning"; text: string }
           | { type: "text"; text: string }
         )[] = [];
         if (reasoning) parts.push({ type: "reasoning", text: reasoning });
         if (text) parts.push({ type: "text", text });
-        return parts;
+        return claims.length > 0
+          ? { content: parts, metadata: { custom: { claims } } }
+          : { content: parts };
       };
 
       try {
@@ -100,11 +122,15 @@ function createChatAdapter(
             if (evt.error) throw new Error(evt.error);
             if (evt.reasoning) {
               reasoning += evt.reasoning;
-              yield { content: buildContent() };
+              yield buildResult();
             }
             if (evt.delta) {
               text += evt.delta;
-              yield { content: buildContent() };
+              yield buildResult();
+            }
+            if (Array.isArray(evt.claims)) {
+              claims = evt.claims;
+              yield buildResult();
             }
             if (Array.isArray(evt.sources)) {
               sources = evt.sources;
@@ -116,7 +142,7 @@ function createChatAdapter(
             "\n\n---\n" +
             sources.map((s) => `[${s.title} ↗](${s.url})`).join(" · ");
           text += footer;
-          yield { content: buildContent() };
+          yield buildResult();
         }
       } finally {
         reader.releaseLock();
@@ -126,7 +152,116 @@ function createChatAdapter(
   };
 }
 
+function extractPlainText(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(extractPlainText).join("");
+  if (isValidElement<{ children?: ReactNode }>(node)) {
+    return extractPlainText(node.props.children);
+  }
+  return "";
+}
+
+function normText(s: string): string {
+  return s.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function matchClaimsForBlock(
+  blockText: string,
+  claims: GroundedClaim[]
+): GroundedClaim[] {
+  if (claims.length === 0) return [];
+  const normBlock = normText(blockText);
+  if (normBlock.length < 12) return [];
+  return claims.filter((c) => {
+    const normClaim = normText(c.text);
+    if (normClaim.length < 12) return false;
+    const probe = normClaim.slice(0, Math.min(40, normClaim.length));
+    return normBlock.includes(probe) || normClaim.includes(normBlock.slice(0, 40));
+  });
+}
+
+function GroundedBlock({
+  tag,
+  children,
+  claims,
+}: {
+  tag: "p" | "li";
+  children: ReactNode;
+  claims: GroundedClaim[];
+}) {
+  const [open, setOpen] = useState(false);
+  const plain = useMemo(() => extractPlainText(children), [children]);
+  const matched = useMemo(
+    () => matchClaimsForBlock(plain, claims),
+    [plain, claims]
+  );
+
+  if (matched.length === 0) {
+    return tag === "li" ? <li>{children}</li> : <p>{children}</p>;
+  }
+
+  const uniqueSources: GroundedSource[] = [];
+  const seen = new Set<string>();
+  let maxConf: number | null = null;
+  for (const c of matched) {
+    if (c.confidence != null && (maxConf == null || c.confidence > maxConf)) {
+      maxConf = c.confidence;
+    }
+    for (const s of c.sources) {
+      if (!seen.has(s.url)) {
+        seen.add(s.url);
+        uniqueSources.push(s);
+      }
+    }
+  }
+
+  const inner = (
+    <>
+      <span
+        className="aui-grounded-text"
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        title="Terverifikasi sumber web — klik untuk lihat sumber"
+        onClick={() => setOpen((v) => !v)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setOpen((v) => !v);
+          }
+        }}
+      >
+        {children}
+      </span>
+      {open && (
+        <span className="aui-grounded-card">
+          <span className="aui-grounded-badge">
+            Terverifikasi web{maxConf != null ? ` (${maxConf}%)` : ""}
+          </span>
+          <span className="aui-grounded-links">
+            {uniqueSources.map((s) => (
+              <a key={s.url} href={s.url} target="_blank" rel="noreferrer">
+                {s.title} ↗
+              </a>
+            ))}
+          </span>
+        </span>
+      )}
+    </>
+  );
+
+  return tag === "li" ? <li>{inner}</li> : <p>{inner}</p>;
+}
+
 function MarkdownText({ text }: { text: string }) {
+  const rawClaims = useAuiState((s) => {
+    const custom = s.message.metadata?.custom as
+      | { claims?: GroundedClaim[] }
+      | undefined;
+    return custom?.claims;
+  });
+  const claims = Array.isArray(rawClaims) ? rawClaims : [];
+
   return (
     <div className="aui-md">
       <ReactMarkdown
@@ -135,6 +270,16 @@ function MarkdownText({ text }: { text: string }) {
             <a href={href} target="_blank" rel="noreferrer">
               {children}
             </a>
+          ),
+          p: ({ children }) => (
+            <GroundedBlock tag="p" claims={claims}>
+              {children}
+            </GroundedBlock>
+          ),
+          li: ({ children }) => (
+            <GroundedBlock tag="li" claims={claims}>
+              {children}
+            </GroundedBlock>
           ),
         }}
       >

@@ -681,6 +681,53 @@ summary {
   text-decoration: underline;
 }
 
+.aui-grounded-text {
+  text-decoration: underline;
+  text-decoration-color: rgba(4, 120, 87, 0.35);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.aui-grounded-text:hover {
+  text-decoration-color: var(--pos);
+  background: rgba(4, 120, 87, 0.05);
+}
+
+.aui-grounded-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 6px;
+  padding: 6px 9px;
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  border-radius: 6px;
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.aui-grounded-badge {
+  color: var(--pos);
+  font-weight: 600;
+}
+
+.aui-grounded-links {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.aui-grounded-links a {
+  color: var(--ink);
+  font-size: 11.5px;
+  text-decoration: underline;
+  text-decoration-color: rgba(17, 24, 39, 0.25);
+  text-underline-offset: 2px;
+}
+
 .aui-reasoning {
   margin-bottom: 10px;
 }
