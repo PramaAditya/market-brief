@@ -105,7 +105,7 @@ p {
 
 .btn:disabled {
   opacity: 0.55;
-  cursor: wait;
+  cursor: default;
 }
 
 section {
@@ -397,7 +397,7 @@ summary {
 
 .starter-chip:disabled {
   opacity: 0.5;
-  cursor: wait;
+  cursor: default;
 }
 
 .chat-thread {
